@@ -1873,7 +1873,9 @@ impl App {
     pub fn jump_to_bottom(&mut self) {
         let max_line = self.total_lines().saturating_sub(1);
         self.diff_state.cursor_line = max_line;
-        self.diff_state.scroll_offset = self.max_scroll_offset();
+        // Always position so the last line is at the bottom of the viewport
+        let viewport = self.diff_state.viewport_height.max(1);
+        self.diff_state.scroll_offset = self.total_lines().saturating_sub(viewport);
         self.update_current_file_from_cursor();
     }
 
