@@ -1,4 +1,4 @@
-use crate::app::{self, App, FileTreeItem, FocusedPanel};
+use crate::app::{self, App, ExpandDirection, FileTreeItem, FocusedPanel, GapCursorHit};
 use crate::input::Action;
 use crate::output::{export_to_clipboard, generate_export_content};
 use crate::persistence::save_session;
@@ -499,27 +499,39 @@ pub fn handle_diff_action(app: &mut App, action: Action) {
         Action::ScrollLeft(n) => app.scroll_left(n),
         Action::ScrollRight(n) => app.scroll_right(n),
         Action::SelectFile => {
-            // Check if cursor is on an expander line or expanded content
-            if let Some((gap_id, is_expanded)) = app.get_gap_at_cursor() {
-                if is_expanded {
-                    // Collapse expanded content
-                    app.collapse_gap(gap_id);
-                } else {
-                    // Expand 20 lines of the gap
-                    if let Err(e) = app.expand_gap(gap_id, Some(20)) {
-                        app.set_error(format!("Failed to expand: {e}"));
+            if let Some(hit) = app.get_gap_at_cursor() {
+                match hit {
+                    GapCursorHit::Expander(gap_id, dir) => {
+                        let limit = if dir == ExpandDirection::Both {
+                            None
+                        } else {
+                            Some(20)
+                        };
+                        if let Err(e) = app.expand_gap(gap_id, dir, limit) {
+                            app.set_error(format!("Failed to expand: {e}"));
+                        }
+                    }
+                    GapCursorHit::HiddenLines(gap_id) => {
+                        if let Err(e) = app.expand_gap(gap_id, ExpandDirection::Both, None) {
+                            app.set_error(format!("Failed to expand: {e}"));
+                        }
+                    }
+                    GapCursorHit::ExpandedContent(gap_id) => {
+                        app.collapse_gap(gap_id);
                     }
                 }
             }
         }
         Action::SelectFileFull => {
-            // Expand all lines in the gap
-            if let Some((gap_id, is_expanded)) = app.get_gap_at_cursor() {
-                if is_expanded {
-                    app.collapse_gap(gap_id);
-                } else {
-                    if let Err(e) = app.expand_gap(gap_id, None) {
-                        app.set_error(format!("Failed to expand: {e}"));
+            if let Some(hit) = app.get_gap_at_cursor() {
+                match hit {
+                    GapCursorHit::Expander(gap_id, _) | GapCursorHit::HiddenLines(gap_id) => {
+                        if let Err(e) = app.expand_gap(gap_id, ExpandDirection::Both, None) {
+                            app.set_error(format!("Failed to expand: {e}"));
+                        }
+                    }
+                    GapCursorHit::ExpandedContent(gap_id) => {
+                        app.collapse_gap(gap_id);
                     }
                 }
             }
