@@ -413,6 +413,9 @@ pub fn handle_commit_select_action(app: &mut App, action: Action) {
             }
         }
         Action::ExitMode => {
+            if app.commit_selection_range.is_none() {
+                return;
+            }
             if let Err(e) = app.exit_commit_select_mode() {
                 app.set_error(format!("Failed to reload changes: {e}"));
             }
